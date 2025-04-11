@@ -968,7 +968,7 @@ def abstract_pos(chrom_pos):
 
 def make_chrom_pos_ref_alt_index(df):
     """Create a chrom_pos_ref_alt index for a dataframe."""
-    df.index = get_chrom_pos_ref_alt(df)
+    df.index = get_cpra(df)
     return df
 
 def make_chrom_pos_index(df):
