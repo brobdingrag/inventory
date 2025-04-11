@@ -3,6 +3,7 @@ import gzip
 import hashlib
 import json
 import io
+import webbrowser
 import os
 import sys
 import re
@@ -69,13 +70,7 @@ def download_file(url, file_path):
         for chunk in response.iter_content(chunk_size=8192):
             file.write(chunk)
 
-
-def crude_title(string):
-    return string.replace("_", " ").title()
-
-
 # Jupyter notebook
-
 def print_tmp(*s):
     """Jupyter notebook print function that clears the output first."""
     clear_output(wait=True)
@@ -88,11 +83,21 @@ def autoreload():
     """
     copy(dedent(autoreload).lstrip("\n"))
 
+
+## Number formatting
 def percent(number, decimals=3):
     return f"{number:.{decimals}%}"
 
 def comma(number, decimals=0):
     return f"{number:,.{decimals}f}"
+
+def sign(x, decimals=2):
+	if x == 0:
+		return "0"
+	elif x > 0:
+		return f"$+${x:.{decimals}f}"
+	else:
+		return f"$-${abs(x):.{decimals}f}"
 
 def copy_to_general(filepath, force=False):
     destination = os.path.join(GENERAL_PATH, os.path.basename(filepath))
@@ -137,12 +142,8 @@ def open_pdf(filepath):
 
 class Jax(Axes):
 
-    s_default = 50
-    alpha_sex = 0.5
     nticks = 5
     labelpad = 7
-    fontsize_arrow = 10
-
 
     def __init__(self, ax):
         # Adopt the existing ax's attributes
@@ -219,7 +220,7 @@ class Jax(Axes):
     def float_y(self, y):
         self.spines.left.set_bounds(min(y), max(y))
     
-
+    # Naked 
     def naked(self):
         self.naked_top()
         self.naked_bottom()
@@ -332,32 +333,6 @@ def get_fig(plt):
     return plt.gcf()
 
 # General matplotlib
-def plot_univariate_distribution(x, xlabel=None, alpha=0.005, bins=100, linewidth=0.8):
-    """Set alpha to None to remove quantile edge"""
-    fig, ax = golden_fig()
-    ax2 = ax.twinx()
-    sns.histplot(x, stat="probability", ax=ax2, color='grey', bins=bins, zorder=0)
-    sns.ecdfplot(x, ax=ax, color='black', linewidth=linewidth, zorder=10)
-    if alpha is not None:
-        ax.set_xlim(np.quantile(x, alpha), np.quantile(x, 1-alpha))
-        ax2.set_xlim(np.quantile(x, alpha), np.quantile(x, 1-alpha))
-    else:
-        ax2.set_xlim(ax.get_xlim())
-    ax.set_nyticks(4)
-    ax2.set_nyticks(4)
-    ax.set_nxticks(4)
-    ax2.percent_yscale(0)
-    ax.percent_yscale(0)
-    ax.set_ylabel("Percentile")
-    ax2.set_ylabel(None)
-    ax2.set_yticklabels([])
-    ax2.set_yticks([])
-    ax.set_xlabel(xlabel)
-    ax.grid()
-    if (np.quantile(x, 1-alpha) - np.quantile(x, alpha) > 0.05) > 2_000:
-        ax.comma_xscale()
-    return fig, ax
-
 def plot_scatter(x, y, xlabel=None, ylabel=None, grid=True, linewidth=0.7, facecolors="none", alpha=0.8, 
                 edgecolors="k", s=None, **kwargs):
     if not xlabel:
@@ -520,6 +495,7 @@ def gunzip(filepath):
         with open(output_filepath, 'wb') as f_out:
             f_out.write(f_in.read())
 
+## String conversion
 def make_friendly(text):
     """Make a filename friendly for Linux."""
     if not isinstance(text, str):
@@ -551,6 +527,9 @@ def make_friendly(text):
         text = ""
     
     return text if text else "unnamed"
+
+def crude_title(string):
+    return string.replace("_", " ").title()
 
 def save_float(data, filepath, prefix='data/', general=False):
     filepath = clean_data_filepath(filepath)
@@ -703,9 +682,7 @@ def load_df(filepath, prefix='data/', low_memory=False, general=False, **kwargs)
 
     return df
 
-def widen_df(df, column, **kwargs):
-    return df.explode(column, **kwargs).reset_index(drop=True)
-
+## Clipboard
 def copy(data, index=False):
     if type(data) == pd.DataFrame or type(data) == pd.Series:
         data.to_clipboard(index=index)
@@ -722,6 +699,7 @@ def copy_head(data, n=10, index=False):
     elif type(data) == set:
         copy(list(data)[:n])
 
+## Set Comparison
 class Compare:
     def __init__(self, data1, data2):
         if type(data1) != set:
@@ -835,7 +813,7 @@ def unique(data):
 def is_unique(data):
     return len(data) == n_unique(data)
 
-# Git
+## Git
 def gitkeep(filepath):
     os.system(f"echo !{filepath} >> .gitignore")
 
@@ -843,7 +821,7 @@ def gitignore(filepath):
     os.system(f"echo {filepath} >> .gitignore")
 
 
-# Pandas
+## Pandas
 def no_na(data):
     if isinstance(data, pd.Series):
         return data.isna().sum() == 0
@@ -897,23 +875,13 @@ def decompress_by_col(df, col, divider=","):
             dfo = pd.concat([dfo, pd.DataFrame([row])])
     return dfo
 
-def sign_number(x, decimals=2):
-	if x == 0:
-		return "0"
-	elif x > 0:
-		return f"$+${x:.{decimals}f}"
-	else:
-		return f"$-${abs(x):.{decimals}f}"
 
+## Statistics
 def sd_to_mad(sd):
     return sd * norm.ppf(0.75)
 
 def mad_to_sd(mad):
     return mad / norm.ppf(0.75)
-
-
-
-## Statistics
 
 def get_mad_normal(x):
     """
@@ -941,4 +909,251 @@ def winsorize(df, measurement, winsor_size=3):
     upper = df[measurement].quantile(upper_quantile)
     df[measurement] = df[measurement].clip(lower, upper)
     return df
+
+
+
+## Genetics
+
+def open_catalog(identifier):
+	identifier_type = "score" if identifier[:3] == "PGS" else "publication"
+	webpage = f"https://www.pgscatalog.org/{identifier_type}/{identifier}/"
+	webbrowser.open(webpage)
+
+
+def open_gwas(gene):
+    webbrowser.open(f"https://www.ebi.ac.uk/gwas/genes/{gene}")
+
+
+
+## Chrom-pos handling
+
+def abstract_chrom(chrom):
+    if chrom == "X":
+        chrom = 23
+    if chrom == "Y":
+        chrom = 24
+    return int(chrom)
+
+def sort_chrom(chrom):
+    if isinstance(chrom, str):
+        return chrom
+    elif isinstance(chrom, pd.Series) or isinstance(chrom, pd.Index):
+        return sorted(set(chrom), key=abstract_chrom)
+    elif isinstance(chrom, set):
+        return sorted(chrom, key=abstract_chrom)
+    elif isinstance(chrom, list):
+        return sorted(chrom, key=abstract_chrom)
+    else:
+        raise ValueError(f"Unexpected type: {type(chrom)}")
+
+def sort_chrom_pos(chrom_pos):
+    if isinstance(chrom_pos, str):
+        return chrom_pos
+    elif isinstance(chrom_pos, pd.Series) or isinstance(chrom_pos, pd.Index):
+        return sorted(set(chrom_pos), key=abstract_pos)
+    elif isinstance(chrom_pos, set):
+        return sorted(chrom_pos, key=abstract_pos)
+    elif isinstance(chrom_pos, list):
+        return sorted(chrom_pos, key=abstract_pos)
+    else:
+        raise ValueError(f"Unexpected type: {type(chrom_pos)}")
+
+def abstract_pos(chrom_pos):
+    chrom, pos = chrom_pos.split("_")
+    if chrom == "X":
+        chrom = 23
+    if chrom == "Y":
+        chrom = 24
+    return int(chrom) * 1e9 + int(pos)
+
+def make_chrom_pos_ref_alt_index(df):
+    """Create a chrom_pos_ref_alt index for a dataframe."""
+    df.index = get_chrom_pos_ref_alt(df)
+    return df
+
+def make_chrom_pos_index(df):
+    df.index = get_chrom_pos(df)
+    return df
+
+def sort_by_chrom_pos(df):
+    """Warning: This will destroy the index of df and relies on no duplicate chrom-position pairs"""
+    df = make_chrom_pos_index(df)
+    df = df.loc[sort_chrom_pos(df.index)]
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+def select_on_chrom_pos(df, chrom_pos_set):
+	return df[get_chrom_pos(df).isin(chrom_pos_set)].copy()
+
+def join_on_chrom_pos_ref_alt(df1, df2, how="inner", lsuffix="", rsuffix="_2"):
+	df1, df2 = df1.copy(), df2.copy()
+	df1 = make_chrom_pos_ref_alt_index(df1)
+	df2 = make_chrom_pos_ref_alt_index(df2)
+	if how == "left" or how == "inner":
+		df2.drop(["chrom", "pos", "ref", "alt"], axis=1, inplace=True)
+	if how == "right":
+		df1.drop(["chrom", "pos", "ref", "alt"], axis=1, inplace=True)
+	df = df1.join(df2, how=how, lsuffix=lsuffix, rsuffix=rsuffix)
+	df.reset_index(drop=True, inplace=True)
+	return df
+
+def join_on_chrom_pos(df1, df2, how="inner", lsuffix="_1", rsuffix="_2"):
+	df1, df2 = df1.copy(), df2.copy()
+	df1 = make_chrom_pos_index(df1)
+	df2 = make_chrom_pos_index(df2)
+	if how == "left" or how == "inner":
+		df2.drop(["chrom", "pos"], axis=1, inplace=True)
+	if how == "right":
+		df1.drop(["chrom", "pos"], axis=1, inplace=True)
+	df = df1.join(df2, how=how, lsuffix=lsuffix, rsuffix=rsuffix)
+	df.reset_index(drop=True, inplace=True)
+	return df
+
+def make_chrom_pos_col(df):
+	df["chrom_pos"] = get_chrom_pos(df)
+	return df
+
+def make_cpr_col(df):
+	df["cpr"] = get_cpr(df)
+	return df
+
+def make_cpra_col(df):
+	df["cpra"] = get_cpra(df)
+	return df
+
+def get_chrom_pos(df):
+	return df.chrom.astype(str) + "_" + df.pos.astype(str)
+
+def get_cpr(df):
+	return df.chrom.astype(str) + "_" + df.pos.astype(str) + "_" + df.ref.astype(str)
+
+def get_cpra(df):
+	return df.chrom.astype(str) + "_" + df.pos.astype(str) + "_" + df.ref.astype(str) + "_" + df.alt.astype(str)
+
+def str_chrom(df):
+    if "chrom" in df.columns:
+        df["chrom"] = df["chrom"].astype(str)
+    if "CHROM" in df.columns:
+        df["CHROM"] = df["CHROM"].astype(str)
+    return df
+
+def strip_chr(df):
+    if "chrom" in df.columns:
+        df["chrom"] = df["chrom"].map(lambda x: x[3:] if "chr" in x else x)
+    if "CHROM" in df.columns:
+        df["CHROM"] = df["CHROM"].map(lambda x: x[3:] if "chr" in x else x)
+    return df
+
+
+## VCF handling
+
+def get_vcf_sample_names(filepath):
+    with open(filepath, 'r') as f:
+        for line in f:
+            if line.startswith('#CHROM'):
+                standard_cols = ['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT']
+                standard_cols_w_hash = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT']
+                assert line.strip().split('\t')[:9] == standard_cols_w_hash, "First 9 VCF columns do not match expected standard columns"
+                cols = line.strip().split('\t')
+                sample_names = cols[len(standard_cols):]
+                return sample_names
+    return None
+
+
+def get_vcf_columns(filepath):
+    vcf_sample_names = get_vcf_sample_names(filepath)
+    if vcf_sample_names is None:
+        return None
+    return ['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT'] + vcf_sample_names
+
+
+def load_vcf(filepath):
+    """
+    Loads a VCF file (.vcf) into a pandas DataFrame. 
+    Run time: about 2-4 minutes depending on the size of the file.
+
+    It should handle any number of samples. 
+    """
+    vcf_sample_names = get_vcf_sample_names(filepath)
+    vcf_columns = get_vcf_columns(filepath)
+    df = pd.read_csv(filepath, sep='\t', comment='#', header=None, low_memory=False)
+    df.columns = vcf_columns
+
+    # Drop rows with no FORMAT
+    if df.FORMAT.isna().sum() > 0:
+        assert df[df.FORMAT.isna()][vcf_sample_names].isna().all()
+        df.dropna(subset=["FORMAT"], inplace=True)
+
+    # Drop these columns if they are unique
+    if is_all(df["INFO"], "."):
+        df.drop(columns=["INFO"], inplace=True)
+
+    if is_all(df["ID"], "."):
+        df.drop(columns=["ID"], inplace=True)
+
+    if is_all(df["FILTER"], "PASS"):
+        df.drop(columns=["FILTER"], inplace=True)
+
+    df.rename(columns={ 'CHROM': 'chrom', 'POS': 'pos', "ID": "rsid", 'REF': 'ref', 'ALT': 'alt', 'QUAL': 'qual', 
+    'INFO': 'information', 'FILTER': 'filter_status'}, inplace=True)
+
+    dfk = pd.DataFrame()
+
+    # Get unique format types and their frequencies
+    format_types = list(set(df.FORMAT))
+
+    # Create format mappings programmatically
+    format_mappings = {}
+    for format_type in format_types:
+        format_mappings[format_type] = format_type.split(':')
+    
+    # Process each format type
+    for format_type in format_types:
+        # Get rows with this format
+        df_temp = df[df.FORMAT == format_type]
+        
+        if len(df_temp) == 0:
+            continue
+            
+        # Get corresponding format columns
+        format_cols = format_mappings[format_type]
+        
+        # Process each sample
+        for sample_name in vcf_sample_names:
+            # Split sample data into columns
+            sample_expanded = df_temp[sample_name].str.split(':', expand=True)
+            if sample_expanded.shape[1] > 0:  # Only process if we have data
+                sample_expanded = sample_expanded.iloc[:, :len(format_cols)]
+                sample_expanded.columns = [f"{sample_name}_{col}" for col in format_cols]
+                
+                # Convert GQ and DP columns to float, replacing "." with np.nan
+                for col in format_cols:
+                    if col in ['GQ', 'DP']:
+                        col_name = f"{sample_name}_{col}"
+                        sample_expanded.loc[sample_expanded[col_name] == ".", col_name] = np.nan
+                        sample_expanded[col_name] = sample_expanded[col_name].astype(float)
+                
+                df_temp = df_temp.join(sample_expanded)
+                df_temp.drop(columns=[sample_name], inplace=True)
+                
+        # Update original dataframe
+        dfk = pd.concat([dfk, df_temp])
+
+    for sample_name in vcf_sample_names:
+        depths = dfk[f'{sample_name}_AD'].str.split(',', expand=True).replace(".", np.nan).astype(float)
+
+        dfk[f'{sample_name}_ref_depth'] = depths[0]
+        if depths.shape[1] > 2:
+            for i in range(1, depths.shape[1]):
+                dfk[f'{sample_name}_alt_depth_{i}'] = depths[i]
+        else:
+            dfk[f'{sample_name}_alt_depth'] = depths[1]
+
+
+    dfk.drop(columns=["FORMAT"] + [f"{sample_name}_AD" for sample_name in vcf_sample_names], inplace=True)
+    dfk = strip_chr(dfk)
+    return dfk
+
+
+
 
