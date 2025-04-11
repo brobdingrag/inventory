@@ -12,7 +12,7 @@ import unicodedata
 
 # Specific standard library imports
 from itertools import combinations
-from collections import defaultdict
+from collections import defaultdict, Counter
 from textwrap import dedent
 
 # Third party
@@ -58,7 +58,8 @@ pd.set_option('display.max_colwidth', 80)
 
 # Matplotlib settings
 plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans', 'Bitstream Vera Sans']
-plt.rcParams['font.family'] = 'sans-serif'
+# plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.family'] = 'serif'
 plt.rcParams['errorbar.capsize'] = 3.0
 
 def download_file(url, file_path):
@@ -67,6 +68,11 @@ def download_file(url, file_path):
     with open(file_path, 'wb') as file:
         for chunk in response.iter_content(chunk_size=8192):
             file.write(chunk)
+
+
+def crude_title(string):
+    return string.replace("_", " ").title()
+
 
 # Jupyter notebook
 
@@ -151,6 +157,14 @@ class Jax(Axes):
     def remove_legend(self):
         self.legend_.remove()
 
+    def reverse_ylim(self):
+         ymin, ymax = self.get_ylim()
+         self.set_ylim(ymax, ymin)
+     
+    def reverse_xlim(self):
+         xmin, xmax = self.get_xlim()
+         self.set_xlim(xmax, xmin)
+ 
     # Remove ticks
     def remove_xticks(self):
         self.set_xticks([])
@@ -204,6 +218,22 @@ class Jax(Axes):
 
     def float_y(self, y):
         self.spines.left.set_bounds(min(y), max(y))
+    
+
+    def naked(self):
+        self.naked_top()
+        self.naked_bottom()
+
+    def naked_bottom(self):
+        self.remove_bottom_spine()
+        self.remove_xlabel()
+        self.remove_xticks()
+
+    def naked_top(self):
+        self.remove_top_right_spines()
+        self.remove_left_spine()
+        self.remove_yticks()
+        self.remove_ylabel()
     
     # Remove spines
     def remove_top_right_spines(self):
@@ -269,6 +299,7 @@ class Jax(Axes):
 
     def percent_yscale(self, decimals=0):
         self.set_ylim(0, 1)
+        self.set_yticks([0, 0.25, 0.5, 0.75, 1])
         self.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1, decimals=decimals))
 
     def twinx(self, **kwargs):
@@ -427,15 +458,16 @@ def code_fig(filepath, prefix='images/'):
     os.system(f"code {prefix + filepath}")
 
 # Save figure
-def save_fig(fig, filepath, prefix='images/', pad=2, h_pad=2, w_pad=2, dpi=350, tight_layout=True, show=False):
+def save_fig(fig, filepath, prefix='images/', pad=0, h_pad=2, w_pad=2, pdf=False, dpi=350, tight_layout=True, show=False):
     """Saves a figure and copies it to the clipboard (for terminal use)."""
     filepath = clean_image_filepath(filepath)
-    if not filepath.endswith(".png"):
-        filepath = filepath + ".png"
-    print(prefix + filepath)
+    filetype = ".pdf" if pdf else ".png"
+    if not filepath.endswith(filetype):
+        filepath = filepath + filetype
+    print_tmp(prefix + filepath)
     if tight_layout:
         fig.tight_layout(h_pad=h_pad, w_pad=w_pad, pad=pad)
-    fig.savefig(prefix + filepath, dpi=dpi, bbox_inches='tight')
+    fig.savefig(prefix + filepath, dpi=dpi, bbox_inches='tight' if pad == 0 else None)
     if show:
         plt.show()
     else:
